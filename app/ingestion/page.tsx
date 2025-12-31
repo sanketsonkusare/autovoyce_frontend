@@ -408,6 +408,11 @@ export default function IngestionPage() {
   };
 
   const formatTime = (date: Date) => {
+    // Use a consistent format to avoid hydration mismatches
+    if (typeof window === "undefined") {
+      // Server-side: use ISO format
+      return date.toISOString().split("T")[1].split(".")[0];
+    }
     return date.toLocaleTimeString([], {
       hour: "2-digit",
       minute: "2-digit",

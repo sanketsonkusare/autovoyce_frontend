@@ -58,15 +58,9 @@ const exampleQuestions = [
 ];
 
 export default function ChatPage() {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: "1",
-      role: "assistant",
-      content:
-        "Hello! I'm AutoVoyce, your AI-powered video research assistant. Ask me anything about the videos I've analyzed!",
-      timestamp: new Date(),
-    },
-  ]);
+  // Initialize messages state to avoid hydration mismatch
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [isMounted, setIsMounted] = useState(false);
   const [inputValue, setInputValue] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
@@ -358,13 +352,15 @@ export default function ChatPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
-  // Check for session on mount
+  // Check for session on mount and initialize messages
   useEffect(() => {
+    setIsMounted(true);
     const sessionId = getSessionId();
     console.log("Chat page loaded - Session ID:", sessionId); // Debug
     console.log("LocalStorage:", localStorage.getItem("autovoyce_session_id")); // Debug
     setHasSession(!!sessionId);
 
+    // Initialize messages after mount to avoid hydration mismatch
     if (!sessionId) {
       // Update welcome message if no session
       setMessages([
@@ -373,6 +369,17 @@ export default function ChatPage() {
           role: "assistant",
           content:
             "Hello! I'm AutoVoyce, your AI-powered video research assistant. It looks like you haven't uploaded any videos yet. Please go to the Ingestion page to search and process videos first, then come back here to ask questions!",
+          timestamp: new Date(),
+        },
+      ]);
+    } else {
+      // Set default welcome message if session exists
+      setMessages([
+        {
+          id: "1",
+          role: "assistant",
+          content:
+            "Hello! I'm AutoVoyce, your AI-powered video research assistant. Ask me anything about the videos I've analyzed!",
           timestamp: new Date(),
         },
       ]);
@@ -751,217 +758,231 @@ export default function ChatPage() {
           <div className="relative flex-1 flex flex-col overflow-hidden">
             {/* Messages Area */}
             <div className="flex-1 overflow-y-auto p-6 space-y-6">
-              {messages.map((message) => (
-                <div
-                  key={message.id}
-                  className={cn(
-                    "flex",
-                    message.role === "user" ? "justify-end" : "justify-start"
-                  )}
-                >
-                  <div className="max-w-[80%] space-y-2">
+              {!isMounted ? (
+                <div className="flex justify-center items-center h-full">
+                  <div className="text-slate-400">Loading...</div>
+                </div>
+              ) : (
+                <>
+                  {messages.map((message) => (
                     <div
+                      key={message.id}
                       className={cn(
-                        "rounded-2xl px-4 py-3 animate-in fade-in slide-in-from-bottom-2 duration-300",
+                        "flex",
                         message.role === "user"
-                          ? "bg-gradient-to-r from-violet-600 to-purple-600 text-white"
-                          : "bg-slate-800/50 border border-slate-700/50 text-slate-100"
+                          ? "justify-end"
+                          : "justify-start"
                       )}
                     >
-                      <div className="text-sm leading-relaxed">
-                        <ReactMarkdown
-                          components={{
-                            // Headings
-                            h1: ({ node, ...props }) => (
-                              <h1
-                                className="text-lg font-bold mb-2 mt-3 first:mt-0"
-                                {...props}
-                              />
-                            ),
-                            h2: ({ node, ...props }) => (
-                              <h2
-                                className="text-base font-semibold mb-2 mt-3 first:mt-0"
-                                {...props}
-                              />
-                            ),
-                            h3: ({ node, ...props }) => (
-                              <h3
-                                className="text-sm font-semibold mb-1.5 mt-2 first:mt-0"
-                                {...props}
-                              />
-                            ),
-                            // Paragraphs
-                            p: ({ node, ...props }) => (
-                              <p className="mb-2 last:mb-0" {...props} />
-                            ),
-                            // Lists
-                            ul: ({ node, ...props }) => (
-                              <ul
-                                className="list-disc list-inside mb-2 space-y-1"
-                                {...props}
-                              />
-                            ),
-                            ol: ({ node, ...props }) => (
-                              <ol
-                                className="list-decimal list-inside mb-2 space-y-1"
-                                {...props}
-                              />
-                            ),
-                            li: ({ node, ...props }) => (
-                              <li className="ml-4" {...props} />
-                            ),
-                            // Code blocks
-                            code: ({ node, inline, ...props }: any) => {
-                              if (inline) {
-                                return (
-                                  <code
+                      <div className="max-w-[80%] space-y-2">
+                        <div
+                          className={cn(
+                            "rounded-2xl px-4 py-3 animate-in fade-in slide-in-from-bottom-2 duration-300",
+                            message.role === "user"
+                              ? "bg-gradient-to-r from-violet-600 to-purple-600 text-white"
+                              : "bg-slate-800/50 border border-slate-700/50 text-slate-100"
+                          )}
+                        >
+                          <div className="text-sm leading-relaxed">
+                            <ReactMarkdown
+                              components={{
+                                // Headings
+                                h1: ({ node, ...props }) => (
+                                  <h1
+                                    className="text-lg font-bold mb-2 mt-3 first:mt-0"
+                                    {...props}
+                                  />
+                                ),
+                                h2: ({ node, ...props }) => (
+                                  <h2
+                                    className="text-base font-semibold mb-2 mt-3 first:mt-0"
+                                    {...props}
+                                  />
+                                ),
+                                h3: ({ node, ...props }) => (
+                                  <h3
+                                    className="text-sm font-semibold mb-1.5 mt-2 first:mt-0"
+                                    {...props}
+                                  />
+                                ),
+                                // Paragraphs
+                                p: ({ node, ...props }) => (
+                                  <p className="mb-2 last:mb-0" {...props} />
+                                ),
+                                // Lists
+                                ul: ({ node, ...props }) => (
+                                  <ul
+                                    className="list-disc list-inside mb-2 space-y-1"
+                                    {...props}
+                                  />
+                                ),
+                                ol: ({ node, ...props }) => (
+                                  <ol
+                                    className="list-decimal list-inside mb-2 space-y-1"
+                                    {...props}
+                                  />
+                                ),
+                                li: ({ node, ...props }) => (
+                                  <li className="ml-4" {...props} />
+                                ),
+                                // Code blocks
+                                code: ({ node, inline, ...props }: any) => {
+                                  if (inline) {
+                                    return (
+                                      <code
+                                        className={cn(
+                                          "px-1.5 py-0.5 rounded text-xs font-mono",
+                                          message.role === "user"
+                                            ? "bg-white/20 text-white"
+                                            : "bg-slate-700/50 text-violet-300"
+                                        )}
+                                        {...props}
+                                      />
+                                    );
+                                  }
+                                  return (
+                                    <code
+                                      className={cn(
+                                        "block p-3 rounded-lg text-xs font-mono overflow-x-auto mb-2",
+                                        message.role === "user"
+                                          ? "bg-white/10 text-white"
+                                          : "bg-slate-900/50 text-slate-200 border border-slate-700/50"
+                                      )}
+                                      {...props}
+                                    />
+                                  );
+                                },
+                                pre: ({ node, ...props }) => (
+                                  <pre className="mb-2" {...props} />
+                                ),
+                                // Links
+                                a: ({ node, ...props }) => (
+                                  <a
                                     className={cn(
-                                      "px-1.5 py-0.5 rounded text-xs font-mono",
+                                      "underline hover:no-underline",
                                       message.role === "user"
-                                        ? "bg-white/20 text-white"
-                                        : "bg-slate-700/50 text-violet-300"
+                                        ? "text-white/90 hover:text-white"
+                                        : "text-violet-400 hover:text-violet-300"
+                                    )}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    {...props}
+                                  />
+                                ),
+                                // Strong/Bold
+                                strong: ({ node, ...props }) => (
+                                  <strong
+                                    className="font-semibold"
+                                    {...props}
+                                  />
+                                ),
+                                // Emphasis/Italic
+                                em: ({ node, ...props }) => (
+                                  <em className="italic" {...props} />
+                                ),
+                                // Blockquotes
+                                blockquote: ({ node, ...props }) => (
+                                  <blockquote
+                                    className={cn(
+                                      "border-l-4 pl-3 py-1 my-2 italic",
+                                      message.role === "user"
+                                        ? "border-white/30 text-white/80"
+                                        : "border-slate-600 text-slate-300"
                                     )}
                                     {...props}
                                   />
-                                );
-                              }
-                              return (
-                                <code
-                                  className={cn(
-                                    "block p-3 rounded-lg text-xs font-mono overflow-x-auto mb-2",
-                                    message.role === "user"
-                                      ? "bg-white/10 text-white"
-                                      : "bg-slate-900/50 text-slate-200 border border-slate-700/50"
-                                  )}
-                                  {...props}
-                                />
-                              );
-                            },
-                            pre: ({ node, ...props }) => (
-                              <pre className="mb-2" {...props} />
-                            ),
-                            // Links
-                            a: ({ node, ...props }) => (
-                              <a
-                                className={cn(
-                                  "underline hover:no-underline",
-                                  message.role === "user"
-                                    ? "text-white/90 hover:text-white"
-                                    : "text-violet-400 hover:text-violet-300"
-                                )}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                {...props}
-                              />
-                            ),
-                            // Strong/Bold
-                            strong: ({ node, ...props }) => (
-                              <strong className="font-semibold" {...props} />
-                            ),
-                            // Emphasis/Italic
-                            em: ({ node, ...props }) => (
-                              <em className="italic" {...props} />
-                            ),
-                            // Blockquotes
-                            blockquote: ({ node, ...props }) => (
-                              <blockquote
-                                className={cn(
-                                  "border-l-4 pl-3 py-1 my-2 italic",
-                                  message.role === "user"
-                                    ? "border-white/30 text-white/80"
-                                    : "border-slate-600 text-slate-300"
-                                )}
-                                {...props}
-                              />
-                            ),
-                            // Horizontal rule
-                            hr: ({ node, ...props }) => (
-                              <hr
-                                className={cn(
-                                  "my-3 border-0 border-t",
-                                  message.role === "user"
-                                    ? "border-white/20"
-                                    : "border-slate-700"
-                                )}
-                                {...props}
-                              />
-                            ),
-                          }}
-                        >
-                          {message.content}
-                        </ReactMarkdown>
-                      </div>
-                      <p
-                        className={cn(
-                          "text-[10px] mt-1.5",
-                          message.role === "user"
-                            ? "text-white/60"
-                            : "text-slate-500"
-                        )}
-                      >
-                        {formatTime(message.timestamp)}
-                      </p>
-                    </div>
-
-                    {/* Source References */}
-                    {message.sources && message.sources.length > 0 && (
-                      <div className="space-y-2">
-                        <div className="text-xs text-slate-400 font-medium px-1">
-                          Sources:
-                        </div>
-                        {message.sources.map((source, idx) => (
-                          <a
-                            key={idx}
-                            href={`#video-${source.videoId}`}
-                            className="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-800/30 border border-slate-700/30 hover:border-violet-500/50 text-xs text-slate-300 hover:text-white transition-colors group"
-                          >
-                            <Video className="size-3 text-violet-400" />
-                            <span className="flex-1 truncate">
-                              {source.videoTitle}
-                            </span>
-                            {source.timestamp && (
-                              <span className="text-slate-500 group-hover:text-slate-400">
-                                {source.timestamp}
-                              </span>
+                                ),
+                                // Horizontal rule
+                                hr: ({ node, ...props }) => (
+                                  <hr
+                                    className={cn(
+                                      "my-3 border-0 border-t",
+                                      message.role === "user"
+                                        ? "border-white/20"
+                                        : "border-slate-700"
+                                    )}
+                                    {...props}
+                                  />
+                                ),
+                              }}
+                            >
+                              {message.content}
+                            </ReactMarkdown>
+                          </div>
+                          <p
+                            className={cn(
+                              "text-[10px] mt-1.5",
+                              message.role === "user"
+                                ? "text-white/60"
+                                : "text-slate-500"
                             )}
-                            <ExternalLink className="size-3 text-slate-500 group-hover:text-violet-400" />
-                          </a>
-                        ))}
-                      </div>
-                    )}
+                          >
+                            {formatTime(message.timestamp)}
+                          </p>
+                        </div>
 
-                    {/* Context Used Section */}
-                    {message.contextUsed && message.contextUsed.length > 0 && (
-                      <div className="mt-2">
-                        <button
-                          onClick={() => toggleContext(message.id)}
-                          className="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-800/30 border border-slate-700/30 hover:border-violet-500/50 text-xs text-slate-400 hover:text-slate-300 transition-colors w-full"
-                        >
-                          <span>Context Used</span>
-                          {showContext[message.id] ? (
-                            <ChevronUp className="size-3 ml-auto" />
-                          ) : (
-                            <ChevronDown className="size-3 ml-auto" />
-                          )}
-                        </button>
-                        {showContext[message.id] && (
-                          <div className="mt-2 space-y-1 pl-3">
-                            {message.contextUsed.map((context, idx) => (
-                              <div
+                        {/* Source References */}
+                        {message.sources && message.sources.length > 0 && (
+                          <div className="space-y-2">
+                            <div className="text-xs text-slate-400 font-medium px-1">
+                              Sources:
+                            </div>
+                            {message.sources.map((source, idx) => (
+                              <a
                                 key={idx}
-                                className="text-xs text-slate-500 flex items-start gap-2"
+                                href={`#video-${source.videoId}`}
+                                className="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-800/30 border border-slate-700/30 hover:border-violet-500/50 text-xs text-slate-300 hover:text-white transition-colors group"
                               >
-                                <ChevronRight className="size-3 mt-0.5 shrink-0" />
-                                <span>{context}</span>
-                              </div>
+                                <Video className="size-3 text-violet-400" />
+                                <span className="flex-1 truncate">
+                                  {source.videoTitle}
+                                </span>
+                                {source.timestamp && (
+                                  <span className="text-slate-500 group-hover:text-slate-400">
+                                    {source.timestamp}
+                                  </span>
+                                )}
+                                <ExternalLink className="size-3 text-slate-500 group-hover:text-violet-400" />
+                              </a>
                             ))}
                           </div>
                         )}
+
+                        {/* Context Used Section */}
+                        {message.contextUsed &&
+                          message.contextUsed.length > 0 && (
+                            <div className="mt-2">
+                              <button
+                                onClick={() => toggleContext(message.id)}
+                                className="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-800/30 border border-slate-700/30 hover:border-violet-500/50 text-xs text-slate-400 hover:text-slate-300 transition-colors w-full"
+                              >
+                                <span>Context Used</span>
+                                {showContext[message.id] ? (
+                                  <ChevronUp className="size-3 ml-auto" />
+                                ) : (
+                                  <ChevronDown className="size-3 ml-auto" />
+                                )}
+                              </button>
+                              {showContext[message.id] && (
+                                <div className="mt-2 space-y-1 pl-3">
+                                  {message.contextUsed.map((context, idx) => (
+                                    <div
+                                      key={idx}
+                                      className="text-xs text-slate-500 flex items-start gap-2"
+                                    >
+                                      <ChevronRight className="size-3 mt-0.5 shrink-0" />
+                                      <span>{context}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          )}
                       </div>
-                    )}
-                  </div>
-                </div>
-              ))}
+                    </div>
+                  ))}
+                </>
+              )}
 
               {isTyping && (
                 <div className="flex justify-start">

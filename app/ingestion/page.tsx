@@ -354,7 +354,7 @@ export default function IngestionPage() {
       }
 
       addLog(data.message || "Processing started successfully", "success");
-      
+
       // Connect to SSE for real-time updates
       const currentSessionId = data.session_id || sessionId;
       if (currentSessionId) {

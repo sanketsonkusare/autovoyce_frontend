@@ -11,8 +11,9 @@ import {
   ExternalLink,
   ChevronDown,
   ChevronUp,
+  Volume2,
 } from "lucide-react";
-import { useScribe } from "@elevenlabs/react";
+import { useWebSpeech } from "@/hooks/use-web-speech";
 import { cn } from "@/lib/utils";
 import { API_ENDPOINTS } from "@/lib/config";
 import { SharedHeader } from "@/components/shared-header";
@@ -118,11 +119,11 @@ export default function ChatPage() {
       analyserRef.current = null;
     }
 
-    // Disconnect from ElevenLabs
+    // Stop Web Speech recognition
     try {
-      await scribe.disconnect();
+      webSpeech.stopListening();
     } catch (error) {
-      console.error("Error disconnecting from scribe:", error);
+      console.error("Error stopping speech recognition:", error);
     }
 
     // Automatically send the transcribed text after recording stops
@@ -156,24 +157,24 @@ export default function ChatPage() {
     }
   };
 
-  // ElevenLabs Scribe hook for realtime transcription (Speech-to-Text)
-  const scribe = useScribe({
-    modelId: "scribe_v2_realtime",
-    onPartialTranscript: (data) => {
+  // Web Speech API hook for realtime transcription (Speech-to-Text)
+  // Free, no API key needed, works in modern browsers
+  const webSpeech = useWebSpeech({
+    onPartialTranscript: (text) => {
       // Update input field with partial transcript for real-time feedback
-      setInputValue(data.text);
+      setInputValue(text);
       // Reset silence timer when we get partial transcripts
       resetSilenceDetection();
     },
-    onCommittedTranscript: (data) => {
-      // Append committed transcript to accumulated text
-      setTranscribedText((prev) => {
-        const newText = prev ? `${prev} ${data.text}` : data.text;
-        setInputValue(newText);
-        return newText;
-      });
-      // Reset silence timer when we get committed transcripts
+    onFinalTranscript: (text) => {
+      // Update with final transcript
+      setTranscribedText(text);
+      setInputValue(text);
+      // Reset silence timer when we get final transcripts
       resetSilenceDetection();
+    },
+    onError: (error) => {
+      console.error("Speech recognition error:", error);
     },
   });
 
@@ -469,14 +470,6 @@ export default function ChatPage() {
         setTranscribedText("");
         setInputValue("");
 
-        // Fetch token from backend
-        const response = await fetch(API_ENDPOINTS.SCRIBE_TOKEN);
-        if (!response.ok) {
-          throw new Error("Failed to get scribe token");
-        }
-
-        const { token } = await response.json();
-
         // Set up audio context and analyzer for silence detection
         const AudioContextClass =
           window.AudioContext || (window as any).webkitAudioContext;
@@ -484,7 +477,7 @@ export default function ChatPage() {
         analyserRef.current = audioContextRef.current.createAnalyser();
         analyserRef.current.fftSize = 256;
 
-        // Get microphone access
+        // Get microphone access and connect to analyzer
         mediaStreamRef.current = await navigator.mediaDevices.getUserMedia({
           audio: true,
         });
@@ -495,14 +488,8 @@ export default function ChatPage() {
         );
         source.connect(analyserRef.current);
 
-        // Connect to ElevenLabs with microphone access
-        await scribe.connect({
-          token,
-          microphone: {
-            echoCancellation: true,
-            noiseSuppression: true,
-          },
-        });
+        // Start Web Speech recognition (free, no API key needed)
+        await webSpeech.startListening();
 
         // Start checking audio levels
         checkAudioLevel();
@@ -532,9 +519,8 @@ export default function ChatPage() {
         const errorMessage: Message = {
           id: Date.now().toString(),
           role: "assistant",
-          content: `Sorry, I couldn't start the voice recording. Please make sure your microphone is enabled and try again. Error: ${
-            error instanceof Error ? error.message : "Unknown error"
-          }`,
+          content: `Sorry, I couldn't start the voice recording. Please make sure your microphone is enabled and try again. Error: ${error instanceof Error ? error.message : "Unknown error"
+            }`,
           timestamp: new Date(),
         };
         setMessages((prev) => [...prev, errorMessage]);
@@ -619,7 +605,7 @@ export default function ChatPage() {
         if (response.status === 401 || response.status === 404) {
           throw new Error(
             errorMessage +
-              " Please upload videos first from the Ingestion page."
+            " Please upload videos first from the Ingestion page."
           );
         }
 
@@ -647,11 +633,11 @@ export default function ChatPage() {
         // If the API returns source information, parse it here
         sources: data.sources
           ? data.sources.map((source: any) => ({
-              videoId: source.video_id || source.id || "",
-              videoTitle: source.video_title || source.title || "Video",
-              timestamp: source.timestamp,
-              relevance: source.relevance || "Relevant",
-            }))
+            videoId: source.video_id || source.id || "",
+            videoTitle: source.video_title || source.title || "Video",
+            timestamp: source.timestamp,
+            relevance: source.relevance || "Relevant",
+          }))
           : undefined,
         contextUsed: data.context
           ? Array.isArray(data.context)
@@ -712,9 +698,8 @@ export default function ChatPage() {
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
-        content: `Sorry, I encountered an error while processing your question: ${
-          error instanceof Error ? error.message : "Unknown error"
-        }. Please try again.`,
+        content: `Sorry, I encountered an error while processing your question: ${error instanceof Error ? error.message : "Unknown error"
+          }. Please try again.`,
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, errorMessage]);
@@ -1024,64 +1009,72 @@ export default function ChatPage() {
 
             {/* Input Area */}
             <div className="p-4 border-t border-slate-700/30 bg-slate-900/30">
-              <div className="flex items-end gap-3">
-                <div className="flex-1">
+              <div className="flex items-center gap-3">
+                {/* Text Input - Full width */}
+                <div className="flex-1 min-w-0">
                   <textarea
                     ref={textareaRef}
                     value={inputValue}
                     onChange={(e) => setInputValue(e.target.value)}
                     onKeyDown={handleKeyDown}
-                    placeholder="Ask a question about the videos..."
+                    placeholder={isRecording ? "Listening..." : isSpeaking ? "AI is speaking..." : "Ask a question about the videos..."}
                     rows={1}
-                    className="w-full resize-none rounded-full border border-slate-600/50 bg-slate-800/50 backdrop-blur-sm px-5 py-3 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-violet-500/50 transition-colors"
+                    disabled={isRecording}
+                    className="w-full resize-none rounded-full border border-slate-600/50 bg-slate-800/50 backdrop-blur-sm px-5 py-3 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-violet-500/50 transition-colors disabled:opacity-50"
                   />
                 </div>
 
-                <button
-                  onClick={showSendButton ? handleSendMessage : handleMicClick}
-                  className={cn(
-                    "shrink-0 size-11 rounded-full flex items-center justify-center transition-all duration-200",
-                    showSendButton
-                      ? "bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400"
-                      : isRecording
-                      ? "bg-red-500 hover:bg-red-400 animate-pulse"
-                      : "bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-500 hover:to-purple-500"
-                  )}
-                >
-                  {showSendButton ? (
-                    <Send className="size-4 text-white" />
-                  ) : isRecording ? (
-                    <VoiceWaveform isActive={true} className="scale-150" />
-                  ) : (
-                    <Mic className="size-4 text-white" />
-                  )}
-                </button>
-              </div>
+                {/* Status Text - Shows when recording or speaking */}
+                {isRecording && (
+                  <span className="text-red-400 text-sm font-medium shrink-0">Listening...</span>
+                )}
+                {isSpeaking && (
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="text-violet-400 text-sm font-medium">Speaking...</span>
+                    <button
+                      onClick={stopSpeaking}
+                      className="px-2 py-1 rounded-full bg-red-500/20 hover:bg-red-500/30 text-red-400 text-xs font-medium transition-colors border border-red-500/30"
+                    >
+                      Stop
+                    </button>
+                  </div>
+                )}
 
-              {/* Voice Recording Indicator */}
-              {isRecording && (
-                <div className="mt-3 flex items-center gap-2 text-xs text-slate-400">
-                  <VoiceWaveform isActive={true} />
-                  <span>
-                    Recording... Will stop and send automatically after 1 second
-                    of silence
-                  </span>
-                </div>
-              )}
-
-              {/* Text-to-Speech Indicator */}
-              {isSpeaking && (
-                <div className="mt-3 flex items-center gap-2 text-xs text-slate-400">
-                  <VoiceWaveform isActive={true} />
-                  <span>AI is speaking...</span>
+                {/* Action Button - Mic/Send */}
+                <div className="relative shrink-0">
+                  {/* Glow effect for recording */}
+                  {isRecording && (
+                    <div className="absolute inset-0 bg-red-500 rounded-full blur-lg animate-pulse opacity-60" />
+                  )}
+                  {/* Glow effect for speaking */}
+                  {isSpeaking && !isRecording && !showSendButton && (
+                    <div className="absolute inset-0 bg-violet-500 rounded-full blur-lg animate-pulse opacity-60" />
+                  )}
                   <button
-                    onClick={stopSpeaking}
-                    className="ml-2 px-2 py-1 rounded bg-red-500/20 hover:bg-red-500/30 text-red-400 text-xs transition-colors"
+                    onClick={showSendButton ? handleSendMessage : handleMicClick}
+                    className={cn(
+                      "relative shrink-0 size-11 rounded-full flex items-center justify-center transition-all duration-200",
+                      showSendButton
+                        ? "bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400"
+                        : isRecording
+                          ? "bg-red-500 hover:bg-red-400"
+                          : isSpeaking
+                            ? "bg-gradient-to-r from-violet-500 to-purple-500"
+                            : "bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-500 hover:to-purple-500"
+                    )}
                   >
-                    Stop
+                    {showSendButton ? (
+                      <Send className="size-4 text-white" />
+                    ) : isRecording ? (
+                      <Mic className="size-4 text-white animate-pulse" />
+                    ) : isSpeaking ? (
+                      <Volume2 className="size-4 text-white animate-pulse" />
+                    ) : (
+                      <Mic className="size-4 text-white" />
+                    )}
                   </button>
                 </div>
-              )}
+              </div>
             </div>
           </div>
         </div>

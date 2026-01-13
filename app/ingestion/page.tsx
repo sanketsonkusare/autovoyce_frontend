@@ -514,8 +514,8 @@ export default function IngestionPage() {
                           currentStep === "processing"
                           ? "bg-gradient-to-r from-violet-600 to-purple-600 text-white"
                           : currentStep === "complete"
-                          ? "bg-violet-600/20 text-violet-400"
-                          : "bg-slate-700 text-slate-500"
+                            ? "bg-violet-600/20 text-violet-400"
+                            : "bg-slate-700 text-slate-500"
                       )}
                     >
                       2
@@ -537,8 +537,8 @@ export default function IngestionPage() {
                         currentStep === "processing"
                           ? "bg-gradient-to-r from-violet-600 to-purple-600 text-white"
                           : currentStep === "complete"
-                          ? "bg-violet-600/20 text-violet-400"
-                          : "bg-slate-700 text-slate-500"
+                            ? "bg-violet-600/20 text-violet-400"
+                            : "bg-slate-700 text-slate-500"
                       )}
                     >
                       3
@@ -722,7 +722,7 @@ export default function IngestionPage() {
                   <div className="text-center space-y-2">
                     <h1 className="text-2xl font-semibold text-white">
                       {currentStep === "complete"
-                        ? "Ingestion Complete!"
+                        ? "Processing Complete!"
                         : "Processing Videos"}
                     </h1>
                     <p className="text-slate-400 text-sm">
@@ -732,75 +732,69 @@ export default function IngestionPage() {
                     </p>
                   </div>
 
-                  {/* Video Progress List */}
-                  <div className="space-y-2 max-h-48 overflow-y-auto">
-                    {videoPreviews
-                      .filter((v) => selectedVideos.has(v.id))
-                      .map((video) => (
-                        <div
-                          key={video.id}
-                          className="p-3 rounded-lg bg-slate-900/50 border border-slate-700/30"
-                        >
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3 flex-1 min-w-0">
-                              {getVideoStatusIcon(video.status)}
-                              <span className="text-sm text-white truncate">
-                                {video.title}
-                              </span>
-                            </div>
-                            <span className="text-xs text-slate-400 capitalize">
-                              {video.status}
-                            </span>
-                          </div>
+                  {/* Processing Indicator - Show when still processing */}
+                  {currentStep === "processing" && (
+                    <div className="flex flex-col items-center justify-center py-8">
+                      <div className="relative">
+                        <div className="absolute inset-0 bg-violet-500 rounded-full blur-xl animate-pulse opacity-30" />
+                        <div className="relative size-20 rounded-full bg-gradient-to-r from-violet-600 to-purple-600 flex items-center justify-center">
+                          <Loader2 className="size-10 text-white animate-spin" />
                         </div>
-                      ))}
-                  </div>
-
-                  {/* Status Log Section */}
-                  {logs.length > 0 && (
-                    <div className="rounded-xl bg-slate-900/50 border border-slate-700/30 overflow-hidden">
-                      <div className="px-4 py-3 border-b border-slate-700/30">
-                        <h3 className="text-sm font-medium text-white">
-                          Progress Log
-                        </h3>
                       </div>
-                      <div className="max-h-60 overflow-y-auto p-4 space-y-2.5">
-                        {logs.map((log, index) => (
-                          <div
-                            key={index}
-                            className="flex items-start gap-3 animate-in fade-in slide-in-from-bottom-2 duration-300"
-                            style={{ animationDelay: `${index * 50}ms` }}
-                          >
-                            <div className="mt-0.5">
-                              {getStatusIcon(log.status)}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p
-                                className={cn(
-                                  "text-sm",
-                                  getStatusColor(log.status)
-                                )}
-                              >
-                                {log.message}
-                              </p>
-                              <p className="text-[10px] text-slate-500 mt-0.5">
-                                {formatTime(log.timestamp)}
-                              </p>
-                            </div>
-                          </div>
-                        ))}
+                      <p className="mt-4 text-sm text-slate-400">
+                        Please wait while we process your videos...
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Success Animation - Show when complete */}
+                  {currentStep === "complete" && (
+                    <div className="flex flex-col items-center justify-center py-8">
+                      <div className="relative">
+                        <div className="absolute inset-0 bg-emerald-500 rounded-full blur-xl animate-pulse opacity-30" />
+                        <div className="relative size-20 rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 flex items-center justify-center">
+                          <Check className="size-10 text-white" />
+                        </div>
                       </div>
                     </div>
                   )}
 
+                  {/* Progress Log - Only show completed (success) items */}
+                  {logs.filter(log => log.status === "success").length > 0 && (
+                    <div className="rounded-xl bg-slate-900/50 border border-slate-700/30 overflow-hidden">
+                      <div className="px-4 py-3 border-b border-slate-700/30">
+                        <h3 className="text-sm font-medium text-white">
+                          Completed Steps
+                        </h3>
+                      </div>
+                      <div className="max-h-48 overflow-y-auto p-4 space-y-2">
+                        {logs
+                          .filter(log => log.status === "success")
+                          .map((log, index) => (
+                            <div
+                              key={log.id}
+                              className="flex items-center gap-3 animate-in fade-in slide-in-from-bottom-2 duration-300"
+                              style={{ animationDelay: `${index * 50}ms` }}
+                            >
+                              <Check className="size-4 text-emerald-400 shrink-0" />
+                              <p className="text-sm text-emerald-400">
+                                {log.message}
+                              </p>
+                            </div>
+                          ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Go to Chat Button - Only show when complete */}
                   {currentStep === "complete" && (
                     <div className="flex justify-center pt-4">
                       <a
                         href="/chat"
-                        className="inline-flex items-center gap-2 px-6 py-2.5 rounded-full bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-500 hover:to-purple-500 text-white font-medium text-sm transition-all duration-200"
+                        className="inline-flex items-center gap-2 px-8 py-3 rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white font-semibold text-base transition-all duration-200 shadow-lg shadow-emerald-500/20"
                       >
                         Go to Chat
-                        <ArrowRight className="size-4" />
+                        <ArrowRight className="size-5" />
                       </a>
                     </div>
                   )}

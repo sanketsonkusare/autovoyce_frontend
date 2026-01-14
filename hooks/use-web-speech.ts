@@ -55,11 +55,14 @@ interface UseWebSpeechReturn {
   startListening: () => Promise<void>;
   stopListening: () => void;
   isSupported: boolean;
+  browserName: string;
+  isChromiumBased: boolean;
+  unsupportedMessage: string | null;
 }
 
 /**
  * Custom hook for Web Speech API - replaces ElevenLabs useScribe
- * Free, no API key needed, works in modern browsers
+ * Free, no API key needed, works in Chrome/Edge browsers
  */
 export function useWebSpeech(options: UseWebSpeechOptions = {}): UseWebSpeechReturn {
   const {
@@ -72,18 +75,74 @@ export function useWebSpeech(options: UseWebSpeechOptions = {}): UseWebSpeechRet
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState("");
   const [isSupported, setIsSupported] = useState(true);
+  const [browserName, setBrowserName] = useState("Unknown");
+  const [isChromiumBased, setIsChromiumBased] = useState(false);
+  const [unsupportedMessage, setUnsupportedMessage] = useState<string | null>(null);
 
   const recognitionRef = useRef<SpeechRecognitionInterface | null>(null);
   const accumulatedTranscriptRef = useRef("");
 
-  // Check browser support
+  // Detect browser and check support
   useEffect(() => {
+    // Browser detection
+    const userAgent = navigator.userAgent.toLowerCase();
+
+    let detectedBrowser = "Unknown";
+    let chromiumBased = false;
+
+    if (userAgent.includes("edg/")) {
+      detectedBrowser = "Edge";
+      chromiumBased = true;
+    } else if (userAgent.includes("brave")) {
+      detectedBrowser = "Brave";
+      chromiumBased = true; // Brave is Chromium-based but often blocks speech APIs
+    } else if (userAgent.includes("chrome") && !userAgent.includes("edg/")) {
+      detectedBrowser = "Chrome";
+      chromiumBased = true;
+    } else if (userAgent.includes("firefox")) {
+      detectedBrowser = "Firefox";
+      chromiumBased = false;
+    } else if (userAgent.includes("safari") && !userAgent.includes("chrome")) {
+      detectedBrowser = "Safari";
+      chromiumBased = false;
+    } else if (userAgent.includes("opera") || userAgent.includes("opr/")) {
+      detectedBrowser = "Opera";
+      chromiumBased = true;
+    }
+
+    setBrowserName(detectedBrowser);
+    setIsChromiumBased(chromiumBased);
+
+    // Check Web Speech API support
     const SpeechRecognition =
       (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
-    if (!SpeechRecognition) {
-      console.warn("Web Speech API not supported in this browser");
+    // Firefox doesn't support Web Speech API
+    if (detectedBrowser === "Firefox") {
+      console.warn("Web Speech API not supported in Firefox");
       setIsSupported(false);
+      setUnsupportedMessage(
+        "Voice input is not supported in Firefox. Please use Chrome or Edge for voice features."
+      );
+      // Brave often blocks speech recognition by default
+    } else if (detectedBrowser === "Brave") {
+      console.warn("Web Speech API may be blocked in Brave");
+      setIsSupported(false);
+      setUnsupportedMessage(
+        "Voice input is disabled in Brave browser. Please use Chrome or Edge for voice features."
+      );
+    } else if (!SpeechRecognition) {
+      console.warn(`Web Speech API not supported in ${detectedBrowser}`);
+      setIsSupported(false);
+      setUnsupportedMessage(
+        `Voice input is not supported in ${detectedBrowser}. Please use Chrome or Edge for voice features.`
+      );
+    } else if (!chromiumBased) {
+      // API might exist but not work properly in non-Chromium browsers
+      console.warn(`Web Speech API may not work correctly in ${detectedBrowser}`);
+      setUnsupportedMessage(
+        `Voice input works best in Chrome or Edge. You may experience issues in ${detectedBrowser}.`
+      );
     }
   }, []);
 
@@ -205,5 +264,8 @@ export function useWebSpeech(options: UseWebSpeechOptions = {}): UseWebSpeechRet
     startListening,
     stopListening,
     isSupported,
+    browserName,
+    isChromiumBased,
+    unsupportedMessage,
   };
 }

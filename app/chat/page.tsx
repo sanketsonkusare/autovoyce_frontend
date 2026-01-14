@@ -1007,6 +1007,16 @@ export default function ChatPage() {
               </div>
             )}
 
+            {/* Browser Compatibility Warning */}
+            {webSpeech.unsupportedMessage && (
+              <div className="mx-4 mb-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center gap-2">
+                <svg className="size-4 text-amber-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                <span className="text-xs text-amber-300">{webSpeech.unsupportedMessage}</span>
+              </div>
+            )}
+
             {/* Input Area */}
             <div className="p-4 border-t border-slate-700/30 bg-slate-900/30">
               <div className="flex items-center gap-3">
@@ -1052,6 +1062,8 @@ export default function ChatPage() {
                   )}
                   <button
                     onClick={showSendButton ? handleSendMessage : handleMicClick}
+                    disabled={!showSendButton && !webSpeech.isSupported}
+                    title={!webSpeech.isSupported ? "Voice input requires Chrome or Edge browser" : undefined}
                     className={cn(
                       "relative shrink-0 size-11 rounded-full flex items-center justify-center transition-all duration-200",
                       showSendButton
@@ -1060,7 +1072,9 @@ export default function ChatPage() {
                           ? "bg-red-500 hover:bg-red-400"
                           : isSpeaking
                             ? "bg-gradient-to-r from-violet-500 to-purple-500"
-                            : "bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-500 hover:to-purple-500"
+                            : !webSpeech.isSupported
+                              ? "bg-slate-600 cursor-not-allowed opacity-50"
+                              : "bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-500 hover:to-purple-500"
                     )}
                   >
                     {showSendButton ? (

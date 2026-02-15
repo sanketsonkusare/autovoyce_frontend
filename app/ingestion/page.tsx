@@ -53,9 +53,11 @@ export default function IngestionPage() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
 
+
+
   const addLog = (message: string, status: LogStatus) => {
     const newLog: LogEntry = {
-      id: Date.now().toString(),
+      id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       message,
       timestamp: new Date(),
       status,
@@ -299,9 +301,6 @@ export default function IngestionPage() {
     setLogs([]);
 
     const selectedVideoIds = Array.from(selectedVideos);
-    const selectedVideoList = videoPreviews.filter((v) =>
-      selectedVideos.has(v.id)
-    );
 
     // Update all selected videos to processing status
     setVideoPreviews((prev) =>
@@ -311,12 +310,12 @@ export default function IngestionPage() {
     );
 
     addLog(
-      `Processing ${selectedVideoIds.length} selected video(s)...`,
+      `Sending ${selectedVideoIds.length} video(s) to backend for processing...`,
       "progress"
     );
 
     try {
-      // Call the /upload/process endpoint with selected video IDs
+      // Send video IDs to backend — transcript fetching happens server-side
       const response = await fetch(API_ENDPOINTS.UPLOAD_PROCESS, {
         method: "POST",
         headers: {
@@ -344,13 +343,12 @@ export default function IngestionPage() {
         console.log(
           "Stored session_id from process in localStorage:",
           data.session_id
-        ); // Debug
+        );
       } else if (sessionId) {
-        // If we already have a session_id, make sure it's in localStorage
         localStorage.setItem("autovoyce_session_id", sessionId);
-        console.log("Using existing session_id:", sessionId); // Debug
+        console.log("Using existing session_id:", sessionId);
       } else {
-        console.warn("No session_id in process response:", data); // Debug
+        console.warn("No session_id in process response:", data);
       }
 
       addLog(data.message || "Processing started successfully", "success");
@@ -372,7 +370,7 @@ export default function IngestionPage() {
       // Mark videos as error
       setVideoPreviews((prev) =>
         prev.map((v) =>
-          selectedVideos.has(v.id) ? { ...v, status: "error" } : v
+          selectedVideos.has(v.id) && v.status !== "error" ? { ...v, status: "error" } : v
         )
       );
       setIsResearching(false);

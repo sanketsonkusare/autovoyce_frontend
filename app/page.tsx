@@ -128,28 +128,28 @@ export default function LandingPage() {
                 <div className="absolute bottom-4 right-12 md:right-24 flex items-center gap-1">
                   {waveformBars.length > 0
                     ? waveformBars.map((bar, i) => (
-                        <div
-                          key={i}
-                          className="w-1 bg-gradient-to-t from-violet-500 to-purple-500 rounded-full animate-pulse"
-                          style={{
-                            height: `${bar.height}px`,
-                            animationDelay: `${bar.animationDelay}ms`,
-                            animationDuration: `${bar.animationDuration}ms`,
-                          }}
-                        />
-                      ))
+                      <div
+                        key={i}
+                        className="w-1 bg-gradient-to-t from-violet-500 to-purple-500 rounded-full animate-pulse"
+                        style={{
+                          height: `${bar.height}px`,
+                          animationDelay: `${bar.animationDelay}ms`,
+                          animationDuration: `${bar.animationDuration}ms`,
+                        }}
+                      />
+                    ))
                     : // Fallback during SSR/hydration
-                      Array.from({ length: 7 }, (_, i) => (
-                        <div
-                          key={i}
-                          className="w-1 bg-gradient-to-t from-violet-500 to-purple-500 rounded-full animate-pulse"
-                          style={{
-                            height: "25px",
-                            animationDelay: `${i * 100}ms`,
-                            animationDuration: "1000ms",
-                          }}
-                        />
-                      ))}
+                    Array.from({ length: 7 }, (_, i) => (
+                      <div
+                        key={i}
+                        className="w-1 bg-gradient-to-t from-violet-500 to-purple-500 rounded-full animate-pulse"
+                        style={{
+                          height: "25px",
+                          animationDelay: `${i * 100}ms`,
+                          animationDuration: "1000ms",
+                        }}
+                      />
+                    ))}
                 </div>
               </div>
             </div>
@@ -161,8 +161,8 @@ export default function LandingPage() {
           id="how-it-works"
           className="relative px-4 py-20 md:py-32 bg-slate-900/30"
         >
-          <div className="max-w-7xl mx-auto">
-            <div className="text-center mb-16">
+          <div className="max-w-6xl mx-auto">
+            <div className="text-center mb-20">
               <h2 className="text-3xl md:text-5xl font-bold text-white mb-4">
                 How It Works
               </h2>
@@ -172,66 +172,158 @@ export default function LandingPage() {
               </p>
             </div>
 
-            <div className="grid md:grid-cols-3 gap-8 md:gap-12">
-              {/* Step 1 */}
-              <div className="relative group">
-                <div className="relative p-8 rounded-2xl bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 hover:border-violet-500/50 transition-all duration-300 h-full">
-                  <div className="absolute -top-4 -left-4 size-12 rounded-full bg-gradient-to-r from-violet-600 to-purple-600 flex items-center justify-center text-white font-bold text-lg shadow-lg">
-                    1
+            <div className="relative space-y-24 md:space-y-32">
+              {/* Connecting vertical line */}
+              <div className="hidden md:block absolute left-1/2 top-8 bottom-8 w-px bg-gradient-to-b from-violet-600/50 via-purple-500/30 to-violet-600/50" />
+
+              {/* Step 1 — GIF left, Text right */}
+              <div className="relative flex flex-col md:flex-row items-center gap-8 md:gap-16">
+                {/* Step number badge (center line) */}
+                <div className="hidden md:flex absolute left-1/2 -translate-x-1/2 z-10 size-12 rounded-full bg-gradient-to-r from-violet-600 to-purple-600 items-center justify-center text-white font-bold text-lg shadow-lg shadow-violet-500/30">
+                  1
+                </div>
+
+                {/* Demo video — left */}
+                <div className="w-full md:w-1/2 flex justify-center md:justify-end md:pr-12">
+                  <div className="relative w-full max-w-md rounded-2xl overflow-hidden border border-slate-700/50 hover:border-violet-500/40 transition-all duration-300 shadow-xl shadow-violet-500/5">
+                    <video
+                      autoPlay
+                      loop
+                      muted
+                      playsInline
+                      className="w-full h-full object-cover"
+                    >
+                      <source src="/videos/1.mp4" type="video/mp4" />
+                    </video>
                   </div>
-                  <div className="mt-4 space-y-4">
-                    <div className="size-16 rounded-xl bg-gradient-to-br from-violet-600/20 to-purple-600/20 flex items-center justify-center border border-violet-500/30">
-                      <Video className="size-8 text-violet-400" />
+                </div>
+
+                {/* Text — right */}
+                <div className="w-full md:w-1/2 md:pl-12 text-center md:text-left">
+                  {/* Mobile step badge */}
+                  <div className="md:hidden flex justify-center mb-4">
+                    <div className="size-10 rounded-full bg-gradient-to-r from-violet-600 to-purple-600 flex items-center justify-center text-white font-bold text-base shadow-lg">
+                      1
                     </div>
-                    <h3 className="text-xl font-semibold text-white">
-                      Enter a Topic or Video
-                    </h3>
-                    <p className="text-slate-400 leading-relaxed">
-                      Provide YouTube URLs or search for a topic. Autovoyce will
-                      find and analyze relevant videos.
-                    </p>
+                  </div>
+                  <h3 className="text-2xl md:text-3xl font-bold text-white mb-4">
+                    Search for a Topic
+                  </h3>
+                  <p className="text-slate-400 text-base md:text-lg leading-relaxed mb-6">
+                    Click on the{" "}
+                    <span className="text-violet-400 font-semibold">Start Researching</span>{" "}
+                    button from the hero section. Enter a topic you want to research and hit{" "}
+                    <span className="text-violet-400 font-semibold">Find Videos</span>.
+                    AutoVoyce will search YouTube and return the most relevant videos for you.
+                  </p>
+                  <Link
+                    href="/ingestion"
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-violet-600/20 border border-violet-500/40 text-violet-300 text-sm font-medium hover:bg-violet-600/30 transition-colors"
+                  >
+                    Start Researching
+                    <ArrowRight className="size-4" />
+                  </Link>
+                </div>
+              </div>
+
+              {/* Step 2 — Text left, GIF right */}
+              <div className="relative flex flex-col-reverse md:flex-row items-center gap-8 md:gap-16">
+                {/* Step number badge (center line) */}
+                <div className="hidden md:flex absolute left-1/2 -translate-x-1/2 z-10 size-12 rounded-full bg-gradient-to-r from-violet-600 to-purple-600 items-center justify-center text-white font-bold text-lg shadow-lg shadow-violet-500/30">
+                  2
+                </div>
+
+                {/* Text — left */}
+                <div className="w-full md:w-1/2 md:pr-12 text-center md:text-right">
+                  {/* Mobile step badge */}
+                  <div className="md:hidden flex justify-center mb-4">
+                    <div className="size-10 rounded-full bg-gradient-to-r from-violet-600 to-purple-600 flex items-center justify-center text-white font-bold text-base shadow-lg">
+                      2
+                    </div>
+                  </div>
+                  <h3 className="text-2xl md:text-3xl font-bold text-white mb-4">
+                    Select &amp; Ingest Videos
+                  </h3>
+                  <p className="text-slate-400 text-base md:text-lg leading-relaxed mb-6">
+                    Browse the discovered videos and select the ones you&apos;d like to
+                    analyze. Click{" "}
+                    <span className="text-violet-400 font-semibold">Start Ingestion</span>{" "}
+                    to begin processing. Once finished, hit{" "}
+                    <span className="text-violet-400 font-semibold">Go to Chat</span>{" "}
+                    to start your research conversation.
+                  </p>
+                  <div className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-violet-600/20 border border-violet-500/40 text-violet-300 text-sm font-medium">
+                    <Brain className="size-4" />
+                    AI Processing &amp; Embedding
+                  </div>
+                </div>
+
+                {/* Demo video — right */}
+                <div className="w-full md:w-1/2 flex justify-center md:justify-start md:pl-12">
+                  <div className="relative w-full max-w-md rounded-2xl overflow-hidden border border-slate-700/50 hover:border-violet-500/40 transition-all duration-300 shadow-xl shadow-violet-500/5">
+                    <video
+                      autoPlay
+                      loop
+                      muted
+                      playsInline
+                      className="w-full h-full object-cover"
+                    >
+                      <source src="/videos/2.mp4" type="video/mp4" />
+                    </video>
                   </div>
                 </div>
               </div>
 
-              {/* Step 2 */}
-              <div className="relative group">
-                <div className="relative p-8 rounded-2xl bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 hover:border-violet-500/50 transition-all duration-300 h-full">
-                  <div className="absolute -top-4 -left-4 size-12 rounded-full bg-gradient-to-r from-violet-600 to-purple-600 flex items-center justify-center text-white font-bold text-lg shadow-lg">
-                    2
-                  </div>
-                  <div className="mt-4 space-y-4">
-                    <div className="size-16 rounded-xl bg-gradient-to-br from-violet-600/20 to-purple-600/20 flex items-center justify-center border border-violet-500/30">
-                      <Brain className="size-8 text-violet-400" />
-                    </div>
-                    <h3 className="text-xl font-semibold text-white">
-                      AI Analyzes Everything
-                    </h3>
-                    <p className="text-slate-400 leading-relaxed">
-                      Transcripts, context, embeddings, and summaries are
-                      extracted and stored for deep understanding.
-                    </p>
+              {/* Step 3 — GIF left, Text right */}
+              <div className="relative flex flex-col md:flex-row items-center gap-8 md:gap-16">
+                {/* Step number badge (center line) */}
+                <div className="hidden md:flex absolute left-1/2 -translate-x-1/2 z-10 size-12 rounded-full bg-gradient-to-r from-violet-600 to-purple-600 items-center justify-center text-white font-bold text-lg shadow-lg shadow-violet-500/30">
+                  3
+                </div>
+
+                {/* Demo video — left */}
+                <div className="w-full md:w-1/2 flex justify-center md:justify-end md:pr-12">
+                  <div className="relative w-full max-w-md rounded-2xl overflow-hidden border border-slate-700/50 hover:border-violet-500/40 transition-all duration-300 shadow-xl shadow-violet-500/5">
+                    <video
+                      autoPlay
+                      loop
+                      muted
+                      playsInline
+                      className="w-full h-full object-cover"
+                    >
+                      <source src="/videos/3.mp4" type="video/mp4" />
+                    </video>
                   </div>
                 </div>
-              </div>
 
-              {/* Step 3 */}
-              <div className="relative group">
-                <div className="relative p-8 rounded-2xl bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 hover:border-violet-500/50 transition-all duration-300 h-full">
-                  <div className="absolute -top-4 -left-4 size-12 rounded-full bg-gradient-to-r from-violet-600 to-purple-600 flex items-center justify-center text-white font-bold text-lg shadow-lg">
-                    3
-                  </div>
-                  <div className="mt-4 space-y-4">
-                    <div className="size-16 rounded-xl bg-gradient-to-br from-violet-600/20 to-purple-600/20 flex items-center justify-center border border-violet-500/30">
-                      <MessageSquare className="size-8 text-violet-400" />
+                {/* Text — right */}
+                <div className="w-full md:w-1/2 md:pl-12 text-center md:text-left">
+                  {/* Mobile step badge */}
+                  <div className="md:hidden flex justify-center mb-4">
+                    <div className="size-10 rounded-full bg-gradient-to-r from-violet-600 to-purple-600 flex items-center justify-center text-white font-bold text-base shadow-lg">
+                      3
                     </div>
-                    <h3 className="text-xl font-semibold text-white">
-                      Ask Anything
-                    </h3>
-                    <p className="text-slate-400 leading-relaxed">
-                      Use text chat or voice chat to ask contextual questions
-                      across all analyzed videos.
-                    </p>
+                  </div>
+                  <h3 className="text-2xl md:text-3xl font-bold text-white mb-4">
+                    Chat via Text or Voice
+                  </h3>
+                  <p className="text-slate-400 text-base md:text-lg leading-relaxed mb-6">
+                    You can now chat with your research! Ask questions via{" "}
+                    <span className="text-violet-400 font-semibold">text input</span>{" "}
+                    for quick queries, or use{" "}
+                    <span className="text-violet-400 font-semibold">voice chat</span>{" "}
+                    for a hands-free experience — the AI will speak its response
+                    back to you using natural text-to-speech.
+                  </p>
+                  <div className="flex flex-wrap justify-center md:justify-start gap-3">
+                    <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-violet-600/20 border border-violet-500/40 text-violet-300 text-sm font-medium">
+                      <MessageSquare className="size-4" />
+                      Text Chat
+                    </div>
+                    <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-purple-600/20 border border-purple-500/40 text-purple-300 text-sm font-medium">
+                      <Mic className="size-4" />
+                      Voice Chat
+                    </div>
                   </div>
                 </div>
               </div>

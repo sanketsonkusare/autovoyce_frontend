@@ -65,6 +65,19 @@ export default function LandingPage() {
                 questions via chat or voice.
               </p>
 
+              {/* Built by */}
+              <p className="text-sm text-slate-500">
+                Built by{" "}
+                <a
+                  href="https://sanketsonkusare.me"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-slate-400 hover:text-violet-400 transition-colors"
+                >
+                  Sanket Sonkusare
+                </a>
+              </p>
+
               {/* CTAs */}
               <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
                 <Link

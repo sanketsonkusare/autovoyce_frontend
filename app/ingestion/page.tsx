@@ -268,8 +268,8 @@ export default function IngestionPage() {
       });
 
       setVideoPreviews(detectedVideos);
-      // Select all videos by default
-      setSelectedVideos(new Set(detectedVideos.map((v) => v.id)));
+      // No videos selected by default — user selects manually
+      setSelectedVideos(new Set());
       setCurrentStep("preview");
     } catch (error) {
       console.error("Error uploading videos:", error);

@@ -489,10 +489,10 @@ export default function LandingPage() {
                   insights, and unlock the knowledge hidden in video content.
                 </p>
                 <Link
-                  href="/chat"
+                  href="/ingestion"
                   className="inline-flex items-center gap-2 px-8 py-4 rounded-full bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-500 hover:to-purple-500 text-white font-semibold text-base transition-all duration-200 shadow-lg shadow-violet-500/25 hover:shadow-xl hover:shadow-violet-500/30 hover:scale-105"
                 >
-                  Start Chatting
+                  Start Researching
                   <ArrowRight className="size-5" />
                 </Link>
               </div>

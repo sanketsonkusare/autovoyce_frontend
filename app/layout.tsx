@@ -38,7 +38,7 @@ export const metadata: Metadata = {
       'Chat with any YouTube video using AI. Ask questions via text or voice and get instant, context-aware answers.',
     images: [
       {
-        url: '/og-image.png',
+        url: '/og-image.png?v=2',
         width: 1200,
         height: 630,
         alt: 'Autovoyce — Talk to YouTube, not just watch it. AI-powered video analysis with text and voice chat.',
@@ -51,8 +51,8 @@ export const metadata: Metadata = {
     title: 'Autovoyce — Talk to YouTube. Not just watch it.',
     description:
       'Chat with any YouTube video using AI. Ask questions via text or voice and get instant, context-aware answers.',
-    images: ['/og-image.png'],
-    creator: '@sanketsonkusare',
+    images: ['/og-image.png?v=2'],
+    creator: '@sassysanket',
   },
 }
 

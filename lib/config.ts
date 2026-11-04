@@ -7,6 +7,7 @@ export const API_ENDPOINTS = {
   UPLOAD_STATUS: `${API_BASE_URL}/upload/status`, // SSE endpoint for processing status
   TRANSCRIPT: `${API_BASE_URL}/transcript`, // Backend transcript fetching endpoint
   QUERY: `${API_BASE_URL}/query`,
+  QUERY_STREAM: `${API_BASE_URL}/query/stream`, // Streamed answers (server-sent events)
   TTS: `${API_BASE_URL}/tts`, // Edge TTS text-to-speech endpoint (free)
 } as const;
 

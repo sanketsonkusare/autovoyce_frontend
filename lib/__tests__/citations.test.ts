@@ -38,3 +38,15 @@ describe("formatTimestamp", () => {
     expect(formatTimestamp(3725)).toBe("1:02:05")
   })
 })
+
+describe("code is never treated as citations", () => {
+  const text = "Use `arr[1]` here [2].\n\n```python\nx = items[3]\n```\nSee [1]."
+  it("linkCitations leaves inline and fenced code untouched", () => {
+    expect(linkCitations(text, six)).toBe(
+      "Use `arr[1]` here [2](#cite-2).\n\n```python\nx = items[3]\n```\nSee [1](#cite-1).",
+    )
+  })
+  it("citedNumbers ignores numbers inside code", () => {
+    expect(citedNumbers(text, six)).toEqual([2, 1])
+  })
+})

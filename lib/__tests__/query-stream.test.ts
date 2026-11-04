@@ -103,4 +103,14 @@ describe("streamQuery", () => {
     await streamQuery({ sessionId: "s", query: "q", ...h })
     expect(h.onError).toHaveBeenCalledWith("The answer stopped unexpectedly. Please try again.")
   })
+
+  it("treats an empty final answer as an error", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(sseResponse([
+      'data: {"type":"sources","sources":[]}\n\n', 'data: {"type":"done","answer":"  "}\n\n',
+    ])))
+    const h = handlers()
+    await streamQuery({ sessionId: "s", query: "q", ...h })
+    expect(h.onDone).not.toHaveBeenCalled()
+    expect(h.onError).toHaveBeenCalledWith("The answer couldn't be completed. Please try again.")
+  })
 })

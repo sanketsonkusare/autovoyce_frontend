@@ -32,6 +32,7 @@ export interface StreamHandlers {
 }
 
 export const STREAM_ENDED_MESSAGE = "The answer stopped unexpectedly. Please try again."
+export const EMPTY_ANSWER_MESSAGE = "The answer couldn't be completed. Please try again."
 
 /**
  * Incremental parser for a server-sent events body. Bytes may arrive split
@@ -127,10 +128,14 @@ export async function streamQuery(
       case "token":
         if (typeof event.text === "string") opts.onToken(event.text)
         break
-      case "done":
+      case "done": {
         finished = true
-        opts.onDone(typeof event.answer === "string" ? event.answer : "")
+        const answer = typeof event.answer === "string" ? event.answer : ""
+        // Never leave the user with a blank bubble
+        if (answer.trim()) opts.onDone(answer)
+        else opts.onError(EMPTY_ANSWER_MESSAGE)
         break
+      }
       case "error":
         finished = true
         opts.onError(typeof event.message === "string" ? event.message : STREAM_ENDED_MESSAGE)

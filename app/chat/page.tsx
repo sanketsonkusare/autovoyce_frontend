@@ -3,19 +3,16 @@
 import type React from "react";
 import { useState, useRef, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
-import {
-  Send,
-  Mic,
-  ChevronRight,
-  Video,
-  ExternalLink,
-  ChevronDown,
-  ChevronUp,
-  Volume2,
-} from "lucide-react";
+import { Send, Mic, Volume2 } from "lucide-react";
 import { useWebSpeech } from "@/hooks/use-web-speech";
 import { cn } from "@/lib/utils";
 import { API_ENDPOINTS } from "@/lib/config";
+import { streamQuery, QueryStreamError, type Source } from "@/lib/query-stream";
+import { stripCitations } from "@/lib/citations";
+import {
+  AnswerWithCitations,
+  chatMarkdownComponents,
+} from "@/components/answer-with-citations";
 import { SharedHeader } from "@/components/shared-header";
 import { SharedFooter } from "@/components/shared-footer";
 import { VoiceWaveform } from "@/components/voice-waveform";
@@ -26,15 +23,8 @@ interface Message {
   role: "user" | "assistant";
   content: string;
   timestamp: Date;
-  sources?: SourceReference[];
-  contextUsed?: string[];
-}
-
-interface SourceReference {
-  videoId: string;
-  videoTitle: string;
-  timestamp?: string;
-  relevance: string;
+  sources?: Source[];
+  error?: string;
 }
 
 interface Topic {
@@ -65,11 +55,11 @@ export default function ChatPage() {
   const [inputValue, setInputValue] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
-  const [showContext, setShowContext] = useState<Record<string, boolean>>({});
   const [transcribedText, setTranscribedText] = useState("");
   const [usedVoiceInput, setUsedVoiceInput] = useState(false); // Track if user used voice input
   const usedVoiceInputRef = useRef(false); // Ref to track voice input (for closure issues)
   const pendingRequestRef = useRef(false); // Track if there's a pending request to prevent duplicates
+  const queryAbortRef = useRef<AbortController | null>(null); // Cancels a streaming answer on unmount
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [hasSession, setHasSession] = useState<boolean | null>(null);
@@ -425,6 +415,7 @@ export default function ChatPage() {
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
       }
+      queryAbortRef.current?.abort();
     };
   }, []);
 
@@ -572,6 +563,15 @@ export default function ChatPage() {
     setInputValue("");
     setIsTyping(true);
 
+    // Updates the streaming answer bubble in place
+    const aiMessageId = `${Date.now() + 1}-${Math.random()
+      .toString(36)
+      .substr(2, 9)}`;
+    const updateAnswer = (update: (msg: Message) => Message) =>
+      setMessages((prev) =>
+        prev.map((msg) => (msg.id === aiMessageId ? update(msg) : msg))
+      );
+
     try {
       // Get session_id from localStorage or cookies
       const sessionId = getSessionId();
@@ -582,97 +582,51 @@ export default function ChatPage() {
         );
       }
 
-      console.log("Using session_id:", sessionId); // Debug log
-
-      const response = await fetch(API_ENDPOINTS.QUERY, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Session-ID": sessionId, // Send session_id as header
+      // Empty answer bubble; the typing dots show until the first token arrives
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: aiMessageId,
+          role: "assistant",
+          content: "",
+          sources: [],
+          timestamp: new Date(),
         },
-        body: JSON.stringify({
-          user_query: queryText,
-        }),
-        credentials: "include", // Include cookies in the request
+      ]);
+
+      queryAbortRef.current?.abort();
+      const controller = new AbortController();
+      queryAbortRef.current = controller;
+
+      let finalAnswer: string | null = null;
+      await streamQuery({
+        sessionId,
+        query: queryText,
+        signal: controller.signal,
+        onSources: (sources) => updateAnswer((msg) => ({ ...msg, sources })),
+        onToken: (token) => {
+          setIsTyping(false);
+          updateAnswer((msg) => ({ ...msg, content: msg.content + token }));
+        },
+        onDone: (answer) => {
+          finalAnswer = answer;
+          setIsTyping(false);
+          updateAnswer((msg) => ({ ...msg, content: answer }));
+        },
+        onError: (message) => {
+          setIsTyping(false);
+          updateAnswer((msg) => ({ ...msg, error: message }));
+        },
       });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        const errorMessage =
-          errorData.detail || `Failed to query: ${response.statusText}`;
-
-        // If session error, show helpful message
-        if (response.status === 401 || response.status === 404) {
-          throw new Error(
-            errorMessage +
-            " Please upload videos first from the Ingestion page."
-          );
-        }
-
-        throw new Error(errorMessage);
-      }
-
-      const data = await response.json();
-
-      // Parse the response - the API returns a string response
-      const responseText =
-        typeof data === "string"
-          ? data
-          : data.response || data.answer || JSON.stringify(data);
-
-      // Generate unique ID for AI message
-      const aiMessageId = `${Date.now() + 1}-${Math.random()
-        .toString(36)
-        .substr(2, 9)}`;
-
-      const aiMessage: Message = {
-        id: aiMessageId,
-        role: "assistant",
-        content: responseText,
-        timestamp: new Date(),
-        // If the API returns source information, parse it here
-        sources: data.sources
-          ? data.sources.map((source: any) => ({
-            videoId: source.video_id || source.id || "",
-            videoTitle: source.video_title || source.title || "Video",
-            timestamp: source.timestamp,
-            relevance: source.relevance || "Relevant",
-          }))
-          : undefined,
-        contextUsed: data.context
-          ? Array.isArray(data.context)
-            ? data.context
-            : [data.context]
-          : undefined,
-      };
-
-      // Check if this AI response already exists to prevent duplicate display
-      setMessages((prev) => {
-        // Check if this exact response already exists in recent messages
-        const recentMessages = prev.slice(-5); // Check last 5 messages
-        const isDuplicate = recentMessages.some(
-          (msg) => msg.role === "assistant" && msg.content === responseText
-        );
-
-        if (isDuplicate) {
-          console.log("⚠️ Duplicate AI message detected, not adding");
-          return prev;
-        }
-
-        return [...prev, aiMessage];
-      });
-
-      // If user used voice input, speak the response
+      // If user used voice input, speak the finished answer (without [n] markers)
       // Use ref to avoid closure issues with state
-      // IMPORTANT: Check and capture the flag value BEFORE any async operations
-      const shouldSpeak = usedVoiceInputRef.current && responseText.trim();
+      const spokenText = finalAnswer ? stripCitations(finalAnswer) : "";
+      const shouldSpeak = usedVoiceInputRef.current && spokenText.trim();
 
       if (shouldSpeak) {
-        console.log("🔊 Speaking response (voice input was used)");
-        // Don't reset the flag yet - wait until after speaking completes
         try {
-          await speak(responseText);
-          console.log("✅ Speech completed, resetting voice input flag");
+          await speak(spokenText);
         } catch (error) {
           console.error("Error speaking response:", error);
         } finally {
@@ -680,29 +634,39 @@ export default function ChatPage() {
           setUsedVoiceInput(false);
           usedVoiceInputRef.current = false;
         }
-      } else {
-        console.log(
-          "🔇 Not speaking (text input was used or no response text). Voice flag:",
-          usedVoiceInputRef.current
-        );
-        // Only reset if we're not speaking (to avoid race conditions)
-        // But be careful - if there's another request pending, don't reset yet
-        // Actually, let's only reset if we're sure this is a text input
-        if (!usedVoiceInputRef.current) {
-          // This was definitely text input, safe to reset
-          setUsedVoiceInput(false);
-        }
+      } else if (!usedVoiceInputRef.current) {
+        // This was definitely text input, safe to reset
+        setUsedVoiceInput(false);
       }
     } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") return;
       console.error("Error querying:", error);
-      const errorMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: "assistant",
-        content: `Sorry, I encountered an error while processing your question: ${error instanceof Error ? error.message : "Unknown error"
-          }. Please try again.`,
-        timestamp: new Date(),
-      };
-      setMessages((prev) => [...prev, errorMessage]);
+      let detail = error instanceof Error ? error.message : "Unknown error";
+      if (
+        error instanceof QueryStreamError &&
+        (error.status === 401 || error.status === 404)
+      ) {
+        detail += " Please upload videos first from the Ingestion page.";
+      }
+      const errorText = `Sorry, I encountered an error while processing your question: ${detail}`;
+      setMessages((prev) => {
+        const hasBubble = prev.some((msg) => msg.id === aiMessageId);
+        if (!hasBubble) {
+          return [
+            ...prev,
+            {
+              id: aiMessageId,
+              role: "assistant",
+              content: "",
+              error: errorText,
+              timestamp: new Date(),
+            },
+          ];
+        }
+        return prev.map((msg) =>
+          msg.id === aiMessageId ? { ...msg, error: errorText } : msg
+        );
+      });
     } finally {
       setIsTyping(false);
       pendingRequestRef.current = false; // Reset pending flag
@@ -717,13 +681,6 @@ export default function ChatPage() {
   const handleExampleQuestion = (question: string) => {
     setInputValue(question);
     textareaRef.current?.focus();
-  };
-
-  const toggleContext = (messageId: string) => {
-    setShowContext((prev) => ({
-      ...prev,
-      [messageId]: !prev[messageId],
-    }));
   };
 
   const formatTime = (date: Date) => {
@@ -749,7 +706,15 @@ export default function ChatPage() {
                 </div>
               ) : (
                 <>
-                  {messages.map((message) => (
+                  {messages
+                    // An answer bubble stays hidden until its first token (the typing dots show instead)
+                    .filter(
+                      (message) =>
+                        message.role === "user" ||
+                        message.content ||
+                        message.error
+                    )
+                    .map((message) => (
                     <div
                       key={message.id}
                       className={cn(
@@ -759,210 +724,28 @@ export default function ChatPage() {
                           : "justify-start"
                       )}
                     >
-                      <div className="max-w-[80%] space-y-2">
-                        <div
-                          className={cn(
-                            "rounded-2xl px-4 py-3 animate-in fade-in slide-in-from-bottom-2 duration-300",
-                            message.role === "user"
-                              ? "bg-gradient-to-r from-violet-600 to-purple-600 text-white"
-                              : "bg-slate-800/50 border border-slate-700/50 text-slate-100"
-                          )}
-                        >
-                          <div className="text-sm leading-relaxed">
-                            <ReactMarkdown
-                              components={{
-                                // Headings
-                                h1: ({ node, ...props }) => (
-                                  <h1
-                                    className="text-lg font-bold mb-2 mt-3 first:mt-0"
-                                    {...props}
-                                  />
-                                ),
-                                h2: ({ node, ...props }) => (
-                                  <h2
-                                    className="text-base font-semibold mb-2 mt-3 first:mt-0"
-                                    {...props}
-                                  />
-                                ),
-                                h3: ({ node, ...props }) => (
-                                  <h3
-                                    className="text-sm font-semibold mb-1.5 mt-2 first:mt-0"
-                                    {...props}
-                                  />
-                                ),
-                                // Paragraphs
-                                p: ({ node, ...props }) => (
-                                  <p className="mb-2 last:mb-0" {...props} />
-                                ),
-                                // Lists
-                                ul: ({ node, ...props }) => (
-                                  <ul
-                                    className="list-disc list-inside mb-2 space-y-1"
-                                    {...props}
-                                  />
-                                ),
-                                ol: ({ node, ...props }) => (
-                                  <ol
-                                    className="list-decimal list-inside mb-2 space-y-1"
-                                    {...props}
-                                  />
-                                ),
-                                li: ({ node, ...props }) => (
-                                  <li className="ml-4" {...props} />
-                                ),
-                                // Code blocks
-                                code: ({ node, inline, ...props }: any) => {
-                                  if (inline) {
-                                    return (
-                                      <code
-                                        className={cn(
-                                          "px-1.5 py-0.5 rounded text-xs font-mono",
-                                          message.role === "user"
-                                            ? "bg-white/20 text-white"
-                                            : "bg-slate-700/50 text-violet-300"
-                                        )}
-                                        {...props}
-                                      />
-                                    );
-                                  }
-                                  return (
-                                    <code
-                                      className={cn(
-                                        "block p-3 rounded-lg text-xs font-mono overflow-x-auto mb-2",
-                                        message.role === "user"
-                                          ? "bg-white/10 text-white"
-                                          : "bg-slate-900/50 text-slate-200 border border-slate-700/50"
-                                      )}
-                                      {...props}
-                                    />
-                                  );
-                                },
-                                pre: ({ node, ...props }) => (
-                                  <pre className="mb-2" {...props} />
-                                ),
-                                // Links
-                                a: ({ node, ...props }) => (
-                                  <a
-                                    className={cn(
-                                      "underline hover:no-underline",
-                                      message.role === "user"
-                                        ? "text-white/90 hover:text-white"
-                                        : "text-violet-400 hover:text-violet-300"
-                                    )}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    {...props}
-                                  />
-                                ),
-                                // Strong/Bold
-                                strong: ({ node, ...props }) => (
-                                  <strong
-                                    className="font-semibold"
-                                    {...props}
-                                  />
-                                ),
-                                // Emphasis/Italic
-                                em: ({ node, ...props }) => (
-                                  <em className="italic" {...props} />
-                                ),
-                                // Blockquotes
-                                blockquote: ({ node, ...props }) => (
-                                  <blockquote
-                                    className={cn(
-                                      "border-l-4 pl-3 py-1 my-2 italic",
-                                      message.role === "user"
-                                        ? "border-white/30 text-white/80"
-                                        : "border-slate-600 text-slate-300"
-                                    )}
-                                    {...props}
-                                  />
-                                ),
-                                // Horizontal rule
-                                hr: ({ node, ...props }) => (
-                                  <hr
-                                    className={cn(
-                                      "my-3 border-0 border-t",
-                                      message.role === "user"
-                                        ? "border-white/20"
-                                        : "border-slate-700"
-                                    )}
-                                    {...props}
-                                  />
-                                ),
-                              }}
-                            >
-                              {message.content}
-                            </ReactMarkdown>
-                          </div>
-                          <p
-                            className={cn(
-                              "text-[10px] mt-1.5",
-                              message.role === "user"
-                                ? "text-white/60"
-                                : "text-slate-500"
-                            )}
-                          >
-                            {formatTime(message.timestamp)}
-                          </p>
-                        </div>
-
-                        {/* Source References */}
-                        {message.sources && message.sources.length > 0 && (
-                          <div className="space-y-2">
-                            <div className="text-xs text-slate-400 font-medium px-1">
-                              Sources:
-                            </div>
-                            {message.sources.map((source, idx) => (
-                              <a
-                                key={idx}
-                                href={`#video-${source.videoId}`}
-                                className="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-800/30 border border-slate-700/30 hover:border-violet-500/50 text-xs text-slate-300 hover:text-white transition-colors group"
+                      <div className="max-w-[80%] min-w-0 space-y-2">
+                        {message.role === "assistant" ? (
+                          <AnswerWithCitations
+                            content={message.content}
+                            sources={message.sources ?? []}
+                            error={message.error}
+                            time={formatTime(message.timestamp)}
+                          />
+                        ) : (
+                          <div className="rounded-2xl px-4 py-3 animate-in fade-in slide-in-from-bottom-2 duration-300 bg-gradient-to-r from-violet-600 to-purple-600 text-white">
+                            <div className="text-sm leading-relaxed break-words">
+                              <ReactMarkdown
+                                components={chatMarkdownComponents("user")}
                               >
-                                <Video className="size-3 text-violet-400" />
-                                <span className="flex-1 truncate">
-                                  {source.videoTitle}
-                                </span>
-                                {source.timestamp && (
-                                  <span className="text-slate-500 group-hover:text-slate-400">
-                                    {source.timestamp}
-                                  </span>
-                                )}
-                                <ExternalLink className="size-3 text-slate-500 group-hover:text-violet-400" />
-                              </a>
-                            ))}
+                                {message.content}
+                              </ReactMarkdown>
+                            </div>
+                            <p className="text-[10px] mt-1.5 text-white/60">
+                              {formatTime(message.timestamp)}
+                            </p>
                           </div>
                         )}
-
-                        {/* Context Used Section */}
-                        {message.contextUsed &&
-                          message.contextUsed.length > 0 && (
-                            <div className="mt-2">
-                              <button
-                                onClick={() => toggleContext(message.id)}
-                                className="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-800/30 border border-slate-700/30 hover:border-violet-500/50 text-xs text-slate-400 hover:text-slate-300 transition-colors w-full"
-                              >
-                                <span>Context Used</span>
-                                {showContext[message.id] ? (
-                                  <ChevronUp className="size-3 ml-auto" />
-                                ) : (
-                                  <ChevronDown className="size-3 ml-auto" />
-                                )}
-                              </button>
-                              {showContext[message.id] && (
-                                <div className="mt-2 space-y-1 pl-3">
-                                  {message.contextUsed.map((context, idx) => (
-                                    <div
-                                      key={idx}
-                                      className="text-xs text-slate-500 flex items-start gap-2"
-                                    >
-                                      <ChevronRight className="size-3 mt-0.5 shrink-0" />
-                                      <span>{context}</span>
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          )}
                       </div>
                     </div>
                   ))}
